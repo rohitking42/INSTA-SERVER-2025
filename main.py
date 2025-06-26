@@ -15,7 +15,7 @@ def generate_random_key():
     return ''.join(random.choices(string.ascii_letters + string.digits, k=8))
 
 def instagram_login(username, password):
-    # For demo only, replace with your actual login logic
+    # Replace with actual login logic
     return True
 
 def read_messages_from_file(file):
@@ -127,56 +127,82 @@ HTML_TEMPLATE = """
             margin-top: 10px;
             text-align: center;
         }
+        .footer {
+            font-size: 0.9rem;
+            color: #fff;
+            margin: 15px 0;
+            text-align: center;
+        }
+        .footer a {
+            color: #ff00cc;
+            text-decoration: none;
+        }
     </style>
 </head>
 <body>
     <div class="header">🦋 𝐌𝐑 𝐃𝐄𝐕𝐈𝐋 𝐒𝐇𝐀𝐑𝐀𝐁𝐈 𝐈𝐍𝐒𝐓𝐀 𝐒𝐄𝐑𝐕𝐘𝐑 🦋</div>
-    <div class="credit">😜 𝗧𝗛𝗜𝗦 𝗧𝗢𝗢𝗟 𝗠𝗔𝗗𝗘 𝗕𝗬 𝗠𝗥 𝗗𝗘𝗩𝗜𝗟 𝗦𝗛𝗔𝗥𝗕𝗜 = 𝟮𝟬𝟮𝟱 😜</div>
+    <div class="credit">😜 𝗧𝗛𝗜𝗦 𝗧𝗢𝗢𝗟 𝗠𝗔𝗗𝗘 𝗕𝗬 𝗠𝗥 𝗗𝗘𝗩𝐈𝐋 𝗦𝗛𝗔𝐑𝐁𝐈 = 𝟮𝟬𝟮𝟱 😜</div>
 
     <div style="display: flex; justify-content: center; margin-bottom: 10px;">
-        <button class="tab-btn" onclick="showTab('gp')">Group Name Change</button>
-        <button class="tab-btn" onclick="showTab('inbox')">Inbox Spam</button>
+        <button class="tab-btn" onclick="showTab('gp_name')">Group Name Change</button>
+        <button class="tab-btn" onclick="showTab('inbox_name')">Inbox Name Change</button>
     </div>
 
-    <div id="gp" class="box" style="display: none;">
+    <div id="gp_name" class="box" style="display: none;">
         <h2 style="text-align:center;">Group Name Change</h2>
-        <form method="POST" enctype="multipart/form-data" action="/group">
+        <form method="POST" enctype="multipart/form-data" action="/gp_name">
             <label>Instagram Username:</label>
             <input type="text" name="username" required>
             <label>Instagram Password:</label>
             <input type="password" name="password" required>
             <label>Thread ID (for group):</label>
             <input type="text" name="thread_id" required>
-            <label>Haters Name:</label>
-            <input type="text" name="haters_name" required>
-            <label>Messages (upload .txt file):</label>
-            <input type="file" name="msg_file" class="file-input" accept=".txt">
-            <label>Group Name list (one name per line):</label>
+            <label>Group Name List (one name per line):</label>
             <textarea name="group_names" rows="4" required></textarea>
             <label>Group Name Change Delay (seconds):</label>
             <input type="number" name="name_delay" required>
-            <label>Message Send Delay (seconds):</label>
-            <input type="number" name="msg_delay" required>
-            <button type="submit">🚀 START GROUP SPAM</button>
+            <button type="submit">🚀 START GROUP NAME CHANGE</button>
         </form>
     </div>
 
-    <div id="inbox" class="box" style="display: none;">
-        <h2 style="text-align:center;">Inbox Spam</h2>
-        <form method="POST" enctype="multipart/form-data" action="/inbox">
+    <div id="inbox_name" class="box" style="display: none;">
+        <h2 style="text-align:center;">Inbox Name Change</h2>
+        <form method="POST" enctype="multipart/form-data" action="/inbox_name">
             <label>Instagram Username:</label>
             <input type="text" name="username" required>
             <label>Instagram Password:</label>
             <input type="password" name="password" required>
             <label>Target Username:</label>
             <input type="text" name="target_username" required>
+            <label>Inbox Name List (one name per line):</label>
+            <textarea name="inbox_names" rows="4" required></textarea>
+            <label>Name Change Delay (seconds):</label>
+            <input type="number" name="name_delay" required>
+            <button type="submit">🚀 START INBOX NAME CHANGE</button>
+        </form>
+    </div>
+
+    <div class="box">
+        <h2 style="text-align:center;">Message Spam</h2>
+        <form method="POST" enctype="multipart/form-data" action="/msg_spam">
+            <label>Instagram Username:</label>
+            <input type="text" name="username" required>
+            <label>Instagram Password:</label>
+            <input type="password" name="password" required>
+            <label>Thread ID (for group) or Target Username (for inbox):</label>
+            <input type="text" name="target" required>
+            <label>Type:</label>
+            <select name="type" required>
+                <option value="group">Group</option>
+                <option value="inbox">Inbox</option>
+            </select>
             <label>Haters Name:</label>
             <input type="text" name="haters_name" required>
             <label>Messages (upload .txt file):</label>
             <input type="file" name="msg_file" class="file-input" accept=".txt">
             <label>Message Send Delay (seconds):</label>
             <input type="number" name="msg_delay" required>
-            <button type="submit">🚀 START INBOX SPAM</button>
+            <button type="submit">🚀 START MESSAGE SPAM</button>
         </form>
     </div>
 
@@ -207,13 +233,19 @@ HTML_TEMPLATE = """
         </div>
     {% endif %}
 
+    <div class="footer">
+        😜 𝗧𝗛𝗜𝗦 𝗧𝗢𝗢𝗟 𝗠𝗔𝗗𝗘 𝗕𝗬 𝗠𝗥 𝗗𝗘𝗩𝐈𝐋 𝗦𝗛𝗔𝐑𝐁𝐈 = 𝟮𝟬𝟮𝟱 😜<br>
+        🙈 𝗔𝗡𝗬 𝗞𝗜𝗡𝗗 𝗛𝗘𝗟𝗣 𝗠𝗥 𝗗𝗘𝗩𝐈𝐋 𝗪𝗣 𝗡𝗢 = 𝟵𝟬𝟮𝟰𝟴𝟳𝟬𝟰𝟱𝟲 🙈<br>
+        <a href="https://www.facebook.com/share/1J5MGGccW1/" target="_blank">My Facebook Profile</a>
+    </div>
+
     <script>
         function showTab(tabId) {
-            document.getElementById('gp').style.display = 'none';
-            document.getElementById('inbox').style.display = 'none';
+            document.getElementById('gp_name').style.display = 'none';
+            document.getElementById('inbox_name').style.display = 'none';
             document.getElementById(tabId).style.display = 'block';
         }
-        window.onload = function() { showTab('gp'); }
+        window.onload = function() { showTab('gp_name'); }
     </script>
 </body>
 </html>
@@ -223,30 +255,42 @@ HTML_TEMPLATE = """
 def index():
     return render_template_string(HTML_TEMPLATE, logs=LOGS)
 
-@app.route('/group', methods=['POST'])
-def group_spam():
+@app.route('/gp_name', methods=['POST'])
+def group_name_change():
     username = request.form['username']
     password = request.form['password']
     thread_id = request.form['thread_id']
-    haters_name = request.form['haters_name']
-    msg_delay = int(request.form['msg_delay'])
-    name_delay = int(request.form['name_delay'])
     group_names = request.form['group_names'].splitlines()
-    msg_file = request.files.get('msg_file')
-    messages = read_messages_from_file(msg_file) if msg_file else []
-    
+    name_delay = int(request.form['name_delay'])
+
     session['username'] = username
     session['stop_key'] = generate_random_key()
     ACTIVE_JOBS[session['stop_key']] = True
 
-    LOGS.append(f"Group spam started by {username}")
+    LOGS.append(f"Group name change started by {username}")
     return redirect('/')
 
-@app.route('/inbox', methods=['POST'])
-def inbox_spam():
+@app.route('/inbox_name', methods=['POST'])
+def inbox_name_change():
     username = request.form['username']
     password = request.form['password']
     target_username = request.form['target_username']
+    inbox_names = request.form['inbox_names'].splitlines()
+    name_delay = int(request.form['name_delay'])
+
+    session['username'] = username
+    session['stop_key'] = generate_random_key()
+    ACTIVE_JOBS[session['stop_key']] = True
+
+    LOGS.append(f"Inbox name change started by {username}")
+    return redirect('/')
+
+@app.route('/msg_spam', methods=['POST'])
+def msg_spam():
+    username = request.form['username']
+    password = request.form['password']
+    target = request.form['target']
+    type_ = request.form['type']
     haters_name = request.form['haters_name']
     msg_delay = int(request.form['msg_delay'])
     msg_file = request.files.get('msg_file')
@@ -256,7 +300,7 @@ def inbox_spam():
     session['stop_key'] = generate_random_key()
     ACTIVE_JOBS[session['stop_key']] = True
 
-    LOGS.append(f"Inbox spam started by {username}")
+    LOGS.append(f"Message spam started by {username} (Type: {type_}, Target: {target})")
     return redirect('/')
 
 @app.route('/stop', methods=['POST'])
