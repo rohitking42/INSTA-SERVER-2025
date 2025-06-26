@@ -3,6 +3,7 @@ import time
 import random
 import string
 from flask import Flask, render_template_string, request, redirect, flash, session
+from instagrapi import Client
 
 app = Flask(__name__)
 app.secret_key = "your_ultra_secret_key"
@@ -172,7 +173,7 @@ HTML_TEMPLATE = """
         <button class="tab-btn" onclick="showTab('inbox_name')">Inbox Name Change</button>
     </div>
 
-    <div id="gp_name" class="box">
+    <div id="gp_name" class="box" style="display: none;">
         <button class="close-btn" onclick="hideTab('gp_name')">✖ Close</button>
         <h2 style="text-align:center;">Group Name Change</h2>
         <form method="POST" enctype="multipart/form-data" action="/gp_name">
@@ -190,7 +191,7 @@ HTML_TEMPLATE = """
         </form>
     </div>
 
-    <div id="inbox_name" class="box">
+    <div id="inbox_name" class="box" style="display: none;">
         <button class="close-btn" onclick="hideTab('inbox_name')">✖ Close</button>
         <h2 style="text-align:center;">Inbox Name Change</h2>
         <form method="POST" enctype="multipart/form-data" action="/inbox_name">
@@ -298,118 +299,131 @@ def index():
 
 @app.route('/gp_name', methods=['POST'])
 def group_name_change():
-    username = request.form['username']
-    password = request.form['password']
-    thread_id = request.form['thread_id']
-    group_names = request.form['group_names'].splitlines()
-    name_delay = int(request.form['name_delay'])
+    try:
+        username = request.form['username']
+        password = request.form['password']
+        thread_id = request.form['thread_id']
+        group_names = request.form['group_names'].splitlines()
+        name_delay = int(request.form['name_delay'])
 
-    session['username'] = username
-    session['stop_key'] = generate_random_key()
-    ACTIVE_JOBS[session['stop_key']] = True
+        session['username'] = username
+        session['stop_key'] = generate_random_key()
+        ACTIVE_JOBS[session['stop_key']] = True
 
-    LOGS.append(f"Group name change started by {username}")
-    return redirect('/')
+        LOGS.append(f"Group name change started by {username}")
+        return redirect('/')
+    except Exception as e:
+        flash(f"Error: {e}")
+        return redirect('/')
 
 @app.route('/inbox_name', methods=['POST'])
 def inbox_name_change():
-    username = request.form['username']
-    password = request.form['password']
-    target_username = request.form['target_username']
-    inbox_names = request.form['inbox_names'].splitlines()
-    name_delay = int(request.form['name_delay'])
+    try:
+        username = request.form['username']
+        password = request.form['password']
+        target_username = request.form['target_username']
+        inbox_names = request.form['inbox_names'].splitlines()
+        name_delay = int(request.form['name_delay'])
 
-    session['username'] = username
-    session['stop_key'] = generate_random_key()
-    ACTIVE_JOBS[session['stop_key']] = True
+        session['username'] = username
+        session['stop_key'] = generate_random_key()
+        ACTIVE_JOBS[session['stop_key']] = True
 
-    LOGS.append(f"Inbox name change started by {username}")
-    return redirect('/')
+        LOGS.append(f"Inbox name change started by {username}")
+        return redirect('/')
+    except Exception as e:
+        flash(f"Error: {e}")
+        return redirect('/')
 
 @app.route('/msg_spam', methods=['POST'])
 def msg_spam():
-    username = request.form['username']
-    password = request.form['password']
-    type_ = request.form['type']
-    haters_name = request.form['haters_name']
-    msg_delay = int(request.form['msg_delay'])
-    msg_file = request.files.get('msg_file')
-    messages = []
-    if msg_file and msg_file.filename.endswith('.txt'):
-        messages = msg_file.read().decode('utf-8').splitlines()
-    else:
-        messages = request.form['messages'].splitlines()
-    if not messages:
-        flash("Please enter messages or upload a valid .txt file!")
-        return redirect('/')
-
-    group_names = request.form.get('group_names', '').splitlines()
-    change_count = int(request.form.get('change_count', 0))
-    name_delay = int(request.form.get('name_delay', 0))
-    thread_id = request.form.get('thread_id', '')
-    target_username = request.form.get('target_username', '')
-
-    session['username'] = username
-    session['stop_key'] = generate_random_key()
-    ACTIVE_JOBS[session['stop_key']] = True
-
-    cl = instagram_login(username, password)
-    if isinstance(cl, str):
-        flash(f"Login failed: {cl}")
-        return redirect('/')
-
-    if type_ == "inbox":
-        try:
-            user_id = cl.user_id_from_username(target_username)
-            LOGS.append(f"Inbox spam started by {username} (Target: {target_username})")
-            while ACTIVE_JOBS.get(session['stop_key'], True):
-                for msg in messages:
-                    full_msg = f"{haters_name} {msg}"
-                    cl.direct_send(full_msg, [user_id])
-                    LOGS.append(f"Message sent: {full_msg}")
-                    time.sleep(msg_delay)
-        except Exception as e:
-            flash(f"Inbox msg error: {e}")
+    try:
+        username = request.form['username']
+        password = request.form['password']
+        type_ = request.form['type']
+        haters_name = request.form['haters_name']
+        msg_delay = int(request.form['msg_delay'])
+        msg_file = request.files.get('msg_file')
+        messages = []
+        if msg_file and msg_file.filename.endswith('.txt'):
+            messages = msg_file.read().decode('utf-8').splitlines()
+        else:
+            messages = request.form['messages'].splitlines()
+        if not messages:
+            flash("Please enter messages or upload a valid .txt file!")
             return redirect('/')
-    elif type_ == "group":
-        try:
-            LOGS.append(f"Group spam started by {username} (Thread: {thread_id})")
-            # Pehla bada spam message bhejna
-            big_msg = f"{haters_name} {' '.join(messages)}"
-            cl.direct_send(big_msg, thread_ids=[thread_id])
-            time.sleep(msg_delay)
-            # Group name changing loop
-            for i in range(min(change_count, len(group_names))):
-                new_name = group_names[i]
-                cl.group_edit(thread_id, new_name)
-                LOGS.append(f"Group name changed to: {new_name}")
-                time.sleep(name_delay)
-            # Fir message spam loop
-            while ACTIVE_JOBS.get(session['stop_key'], True):
-                for msg in messages:
-                    full_msg = f"{haters_name} {msg}"
-                    cl.direct_send(full_msg, thread_ids=[thread_id])
-                    LOGS.append(f"Message sent: {full_msg}")
-                    time.sleep(msg_delay)
-        except Exception as e:
-            flash(f"Group msg error: {e}")
+
+        group_names = request.form.get('group_names', '').splitlines()
+        change_count = int(request.form.get('change_count', 0))
+        name_delay = int(request.form.get('name_delay', 0))
+        thread_id = request.form.get('thread_id', '')
+        target_username = request.form.get('target_username', '')
+
+        session['username'] = username
+        session['stop_key'] = generate_random_key()
+        ACTIVE_JOBS[session['stop_key']] = True
+
+        cl = instagram_login(username, password)
+        if isinstance(cl, str):
+            flash(f"Login failed: {cl}")
             return redirect('/')
-    else:
-        flash("Invalid choice!")
+
+        if type_ == "inbox":
+            try:
+                user_id = cl.user_id_from_username(target_username)
+                LOGS.append(f"Inbox spam started by {username} (Target: {target_username})")
+                while ACTIVE_JOBS.get(session['stop_key'], True):
+                    for msg in messages:
+                        full_msg = f"{haters_name} {msg}"
+                        cl.direct_send(full_msg, [user_id])
+                        LOGS.append(f"Message sent: {full_msg}")
+                        time.sleep(msg_delay)
+            except Exception as e:
+                flash(f"Inbox msg error: {e}")
+                return redirect('/')
+        elif type_ == "group":
+            try:
+                LOGS.append(f"Group spam started by {username} (Thread: {thread_id})")
+                big_msg = f"{haters_name} {' '.join(messages)}"
+                cl.direct_send(big_msg, thread_ids=[thread_id])
+                time.sleep(msg_delay)
+                for i in range(min(change_count, len(group_names))):
+                    new_name = group_names[i]
+                    cl.group_edit(thread_id, new_name)
+                    LOGS.append(f"Group name changed to: {new_name}")
+                    time.sleep(name_delay)
+                while ACTIVE_JOBS.get(session['stop_key'], True):
+                    for msg in messages:
+                        full_msg = f"{haters_name} {msg}"
+                        cl.direct_send(full_msg, thread_ids=[thread_id])
+                        LOGS.append(f"Message sent: {full_msg}")
+                        time.sleep(msg_delay)
+            except Exception as e:
+                flash(f"Group msg error: {e}")
+                return redirect('/')
+        else:
+            flash("Invalid choice!")
+            return redirect('/')
         return redirect('/')
-    return redirect('/')
+    except Exception as e:
+        flash(f"Internal error: {e}")
+        return redirect('/')
 
 @app.route('/stop', methods=['POST'])
 def stop_spam():
-    stop_key = request.form['stop_key']
-    if stop_key in ACTIVE_JOBS:
-        ACTIVE_JOBS[stop_key] = False
-        LOGS.append(f"Spam stopped with key: {stop_key}")
-        session.pop('stop_key', None)
-    else:
-        flash("Invalid stop key!")
-    return redirect('/')
+    try:
+        stop_key = request.form['stop_key']
+        if stop_key in ACTIVE_JOBS:
+            ACTIVE_JOBS[stop_key] = False
+            LOGS.append(f"Spam stopped with key: {stop_key}")
+            session.pop('stop_key', None)
+        else:
+            flash("Invalid stop key!")
+        return redirect('/')
+    except Exception as e:
+        flash(f"Error: {e}")
+        return redirect('/')
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(debug=False, host='0.0.0.0', port=port)
+    app.run(debug=True, host='0.0.0.0', port=port)
