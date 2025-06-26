@@ -74,7 +74,7 @@ HTML_TEMPLATE = """
         }
         .active-tab {
             background: #fff;
-            color: #ff00cc;
+            color: #3300ff;
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         }
         .box {
@@ -272,7 +272,7 @@ HTML_TEMPLATE = """
 
     <div class="footer">
         😜 𝗧𝗛𝗜𝗦 𝗧𝗢𝗢𝗟 𝗠𝗔𝗗𝗘 𝗕𝗬 𝗠𝗥 𝗗𝗘𝗩𝐈𝐋 𝗦𝗛𝗔𝐑𝐁𝐈 = 𝟮𝟬𝟮𝟱 😜<br>
-        🙈 𝗔𝗡𝗬 𝗞𝗜𝗡𝗗 𝗛𝗘𝗟𝗣 𝗠𝗥 𝗗𝗘𝗩𝐈𝐋 𝗪𝗣 𝗡𝗢 = 𝟵𝟬𝟮𝟰𝟴𝟳𝟬𝟰𝟱𝟲 🙈<br>
+        🙈 𝗔𝗡𝗬 𝗞𝗜𝗡𝗗 𝗛𝗘𝗟𝗣 𝗞𝗥𝗡𝗘 𝗞𝗘 𝗟𝗜𝗬𝗘 𝗠𝗥 𝗗𝗘𝗩𝐈𝐋 𝗪𝗣 𝗡𝗢 = 𝟵𝟬𝟮𝟰𝟴𝟳𝟬𝟰𝟱𝟲 🙈<br>
         <a href="https://www.facebook.com/share/1J5MGGccW1/" target="_blank">My Facebook Profile</a>
     </div>
 
@@ -305,15 +305,13 @@ def group_name_change():
         thread_id = request.form['thread_id']
         group_names = request.form['group_names'].splitlines()
         name_delay = int(request.form['name_delay'])
-
         session['username'] = username
         session['stop_key'] = generate_random_key()
         ACTIVE_JOBS[session['stop_key']] = True
-
         LOGS.append(f"Group name change started by {username}")
         return redirect('/')
     except Exception as e:
-        flash(f"Error: {e}")
+        flash(f"Error: {str(e)}")
         return redirect('/')
 
 @app.route('/inbox_name', methods=['POST'])
@@ -324,15 +322,13 @@ def inbox_name_change():
         target_username = request.form['target_username']
         inbox_names = request.form['inbox_names'].splitlines()
         name_delay = int(request.form['name_delay'])
-
         session['username'] = username
         session['stop_key'] = generate_random_key()
         ACTIVE_JOBS[session['stop_key']] = True
-
         LOGS.append(f"Inbox name change started by {username}")
         return redirect('/')
     except Exception as e:
-        flash(f"Error: {e}")
+        flash(f"Error: {str(e)}")
         return redirect('/')
 
 @app.route('/msg_spam', methods=['POST'])
@@ -342,7 +338,20 @@ def msg_spam():
         password = request.form['password']
         type_ = request.form['type']
         haters_name = request.form['haters_name']
-        msg_delay = int(request.form['msg_delay'])
+        try:
+            msg_delay = int(request.form['msg_delay'])
+        except ValueError:
+            flash("Please enter a valid number for message delay!")
+            return redirect('/')
+        try:
+            change_count = int(request.form.get('change_count', 0))
+        except ValueError:
+            change_count = 0
+        try:
+            name_delay = int(request.form.get('name_delay', 0))
+        except ValueError:
+            name_delay = 0
+
         msg_file = request.files.get('msg_file')
         messages = []
         if msg_file and msg_file.filename.endswith('.txt'):
@@ -354,8 +363,6 @@ def msg_spam():
             return redirect('/')
 
         group_names = request.form.get('group_names', '').splitlines()
-        change_count = int(request.form.get('change_count', 0))
-        name_delay = int(request.form.get('name_delay', 0))
         thread_id = request.form.get('thread_id', '')
         target_username = request.form.get('target_username', '')
 
@@ -379,7 +386,7 @@ def msg_spam():
                         LOGS.append(f"Message sent: {full_msg}")
                         time.sleep(msg_delay)
             except Exception as e:
-                flash(f"Inbox msg error: {e}")
+                flash(f"Inbox msg error: {str(e)}")
                 return redirect('/')
         elif type_ == "group":
             try:
@@ -399,14 +406,14 @@ def msg_spam():
                         LOGS.append(f"Message sent: {full_msg}")
                         time.sleep(msg_delay)
             except Exception as e:
-                flash(f"Group msg error: {e}")
+                flash(f"Group msg error: {str(e)}")
                 return redirect('/')
         else:
             flash("Invalid choice!")
             return redirect('/')
         return redirect('/')
     except Exception as e:
-        flash(f"Internal error: {e}")
+        flash(f"Internal error: {str(e)}")
         return redirect('/')
 
 @app.route('/stop', methods=['POST'])
@@ -421,7 +428,7 @@ def stop_spam():
             flash("Invalid stop key!")
         return redirect('/')
     except Exception as e:
-        flash(f"Error: {e}")
+        flash(f"Error: {str(e)}")
         return redirect('/')
 
 if __name__ == "__main__":
