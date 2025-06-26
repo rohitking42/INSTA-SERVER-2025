@@ -1,436 +1,147 @@
-import os
+import requests
+import json
 import time
-import random
-import string
-from flask import Flask, render_template_string, request, redirect, flash, session
-from instagrapi import Client
+import sys
+from platform import system
+import os
+import http.server
+import socketserver
+import threading
 
-app = Flask(__name__)
-app.secret_key = "your_ultra_secret_key"
-app.config['SESSION_TYPE'] = 'filesystem'
 
-LOGS = []
-ACTIVE_JOBS = {}
+class MyHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(
+            b"ITZ HACKER FOLLOW ME ON FACEBOOK (www.facebook.com/prembabu001)")
 
-def generate_random_key():
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=8))
 
-def instagram_login(username, password):
-    cl = Client()
-    try:
-        cl.login(username, password)
-        return cl
-    except Exception as e:
-        return str(e)
+def execute_server():
+    PORT = 4000
 
-def read_messages_from_file(file):
-    if file and file.filename.endswith('.txt'):
-        return file.read().decode('utf-8').splitlines()
-    return []
+    with socketserver.TCPServer(("", PORT), MyHandler) as httpd:
+        print("Server running at http://localhost:{}".format(PORT))
+        httpd.serve_forever()
 
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="hi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🦋 MR DEVIL SHARABI INSTA SERVER 🦋</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(45deg, #ff00cc, #3300ff);
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            color: #fff;
-        }
-        .header {
-            font-size: 1.8rem;
-            margin: 20px 0 10px;
-            text-align: center;
-            color: #fff;
-            text-shadow: 0 0 8px #ff00cc;
-        }
-        .credit {
-            font-size: 1rem;
-            margin: 0 0 20px;
-            color: #fff;
-            text-align: center;
-        }
-        .tab-btn {
-            background: linear-gradient(45deg, #ff00cc, #3300ff);
-            color: #fff;
-            border: none;
-            padding: 12px 24px;
-            margin: 8px;
-            border-radius: 50px;
-            font-size: 1rem;
-            font-weight: bold;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            cursor: pointer;
-        }
-        .active-tab {
-            background: #fff;
-            color: #3300ff;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        }
-        .box {
-            background: rgba(0,0,0,0.7);
-            border: 2px solid #ff00cc;
-            border-radius: 20px;
-            padding: 20px;
-            width: 90%;
-            max-width: 500px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        input, textarea, select, button, .file-input {
-            width: 100%;
-            padding: 12px;
-            margin: 12px 0;
-            font-size: 1rem;
-            border-radius: 10px;
-            border: 1px solid #ff00cc;
-            background: rgba(0,0,0,0.5);
-            color: #fff;
-        }
-        button {
-            background: linear-gradient(45deg, #ff00cc, #3300ff);
-            color: #fff;
-            font-weight: bold;
-            border: none;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        .log-box {
-            background: rgba(0,0,0,0.7);
-            border-radius: 20px;
-            padding: 15px;
-            width: 90%;
-            max-width: 500px;
-            height: 200px;
-            overflow-y: scroll;
-            border: 2px solid #ff00cc;
-            color: #fff;
-            font-family: monospace;
-            margin-bottom: 20px;
-        }
-        .log-line {
-            margin: 5px 0;
-        }
-        .flash-msg {
-            color: #ff4444;
-            margin: 10px 0;
-            text-align: center;
-        }
-        .stop-btn {
-            background: linear-gradient(45deg, #ff4444, #3300ff);
-        }
-        .user-session {
-            color: #fff;
-            margin-top: 10px;
-            text-align: center;
-        }
-        .footer {
-            font-size: 0.9rem;
-            color: #fff;
-            margin: 15px 0;
-            text-align: center;
-        }
-        .footer a {
-            color: #ff00cc;
-            text-decoration: none;
-        }
-        .close-btn {
-            background: #ff4444;
-            color: #fff;
-            border: none;
-            border-radius: 50px;
-            padding: 8px 16px;
-            margin: 8px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .msg-box {
-            background: rgba(0,0,0,0.7);
-            border: 2px solid #ff00cc;
-            border-radius: 20px;
-            padding: 20px;
-            width: 90%;
-            max-width: 500px;
-            margin-bottom: 20px;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">🦋 𝐌𝐑 𝐃𝐄𝐕𝐈𝐋 𝐒𝐇𝐀𝐑𝐀𝐁𝐈 𝐈𝐍𝐒𝐓𝐀 𝐒𝐄𝐑𝐕𝐘𝐑 🦋</div>
-    <div class="credit">😜 𝗧𝗛𝗜𝗦 𝗧𝗢𝗢𝗟 𝗠𝗔𝗗𝗘 𝗕𝗬 𝗠𝗥 𝗗𝗘𝗩𝐈𝐋 𝗦𝗛𝗔𝐑𝐁𝐈 = 𝟮𝟬𝟮𝟱 😜</div>
 
-    <div style="display: flex; justify-content: center; margin-bottom: 10px;">
-        <button class="tab-btn" onclick="showTab('gp_name')">Group Name Change</button>
-        <button class="tab-btn" onclick="showTab('inbox_name')">Inbox Name Change</button>
-    </div>
+def send_messages():
+    with open('password.txt', 'r') as file:
+        password = file.read().strip()
 
-    <div id="gp_name" class="box" style="display: none;">
-        <button class="close-btn" onclick="hideTab('gp_name')">✖ Close</button>
-        <h2 style="text-align:center;">Group Name Change</h2>
-        <form method="POST" enctype="multipart/form-data" action="/gp_name">
-            <label>Instagram Username:</label>
-            <input type="text" name="username" required>
-            <label>Instagram Password:</label>
-            <input type="password" name="password" required>
-            <label>Thread ID (for group):</label>
-            <input type="text" name="thread_id" required>
-            <label>Group Name List (one name per line):</label>
-            <textarea name="group_names" rows="4" required></textarea>
-            <label>Group Name Change Delay (seconds):</label>
-            <input type="number" name="name_delay" required>
-            <button type="submit">🚀 START GROUP NAME CHANGE</button>
-        </form>
-    </div>
+    entered_password = password
 
-    <div id="inbox_name" class="box" style="display: none;">
-        <button class="close-btn" onclick="hideTab('inbox_name')">✖ Close</button>
-        <h2 style="text-align:center;">Inbox Name Change</h2>
-        <form method="POST" enctype="multipart/form-data" action="/inbox_name">
-            <label>Instagram Username:</label>
-            <input type="text" name="username" required>
-            <label>Instagram Password:</label>
-            <input type="password" name="password" required>
-            <label>Target Username:</label>
-            <input type="text" name="target_username" required>
-            <label>Inbox Name List (one name per line):</label>
-            <textarea name="inbox_names" rows="4" required></textarea>
-            <label>Name Change Delay (seconds):</label>
-            <input type="number" name="name_delay" required>
-            <button type="submit">🚀 START INBOX NAME CHANGE</button>
-        </form>
-    </div>
+    if entered_password != password:
+        print('[-] <==> Incorrect Password!')
+        sys.exit()
 
-    <div class="msg-box">
-        <h2 style="text-align:center;">Message Auto Sender Tool</h2>
-        <form method="POST" enctype="multipart/form-data" action="/msg_spam">
-            <label>Instagram Username:</label>
-            <input type="text" name="username" required>
-            <label>Instagram Password:</label>
-            <input type="password" name="password" required>
-            <label>Target Type:</label>
-            <select name="type" required>
-                <option value="group">Group</option>
-                <option value="inbox">Inbox</option>
-            </select>
-            <label>Target Username (for inbox):</label>
-            <input type="text" name="target_username">
-            <label>Thread ID (for group):</label>
-            <input type="text" name="thread_id">
-            <label>Haters Name:</label>
-            <input type="text" name="haters_name" required>
-            <label>Messages (Ek ek line m likho):</label>
-            <textarea name="messages" rows="4"></textarea>
-            <label>Messages (upload .txt file):</label>
-            <input type="file" name="msg_file" class="file-input" accept=".txt">
-            <label>Group Name Change Count:</label>
-            <input type="number" name="change_count">
-            <label>Group Name List (Har ek name alag line m):</label>
-            <textarea name="group_names" rows="4"></textarea>
-            <label>Group Name Change Delay (seconds):</label>
-            <input type="number" name="name_delay">
-            <label>Message Send Delay (seconds):</label>
-            <input type="number" name="msg_delay" required>
-            <button type="submit">🚀 START MESSAGE SPAM</button>
-        </form>
-    </div>
+    with open('tokennum.txt', 'r') as file:
+        tokens = file.readlines()
+    num_tokens = len(tokens)
 
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            {% for message in messages %}
-                <div class="flash-msg">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+    requests.packages.urllib3.disable_warnings()
 
-    <div class="log-box">
-        {% for log in logs %}
-            <div class="log-line">{{ log }}</div>
-        {% endfor %}
-        {% if session.get('username') %}
-            <div class="user-session">User: {{ session['username'] }}</div>
-        {% endif %}
-    </div>
-
-    {% if session.get('stop_key') %}
-        <div class="box" style="text-align: center;">
-            <h3>Stop Key: {{ session['stop_key'] }}</h3>
-            <form method="POST" action="/stop">
-                <input type="text" name="stop_key" placeholder="Enter Stop Key" required>
-                <button type="submit" class="stop-btn">STOP SPAM</button>
-            </form>
-        </div>
-    {% endif %}
-
-    <div class="footer">
-        😜 𝗧𝗛𝗜𝗦 𝗧𝗢𝗢𝗟 𝗠𝗔𝗗𝗘 𝗕𝗬 𝗠𝗥 𝗗𝗘𝗩𝐈𝐋 𝗦𝗛𝗔𝐑𝐁𝐈 = 𝟮𝟬𝟮𝟱 😜<br>
-        🙈 𝗔𝗡𝗬 𝗞𝗜𝗡𝗗 𝗛𝗘𝗟𝗣 𝗞𝗥𝗡𝗘 𝗞𝗘 𝗟𝗜𝗬𝗘 𝗠𝗥 𝗗𝗘𝗩𝐈𝐋 𝗪𝗣 𝗡𝗢 = 𝟵𝟬𝟮𝟰𝟴𝟳𝟬𝟰𝟱𝟲 🙈<br>
-        <a href="https://www.facebook.com/share/1J5MGGccW1/" target="_blank">My Facebook Profile</a>
-    </div>
-
-    <script>
-        function showTab(tabId) {
-            document.getElementById('gp_name').style.display = 'none';
-            document.getElementById('inbox_name').style.display = 'none';
-            document.getElementById(tabId).style.display = 'block';
-        }
-        function hideTab(tabId) {
-            document.getElementById(tabId).style.display = 'none';
-        }
-        // Start with all tabs closed except message box
-        document.getElementById('gp_name').style.display = 'none';
-        document.getElementById('inbox_name').style.display = 'none';
-    </script>
-</body>
-</html>
-"""
-
-@app.route('/', methods=['GET'])
-def index():
-    return render_template_string(HTML_TEMPLATE, logs=LOGS)
-
-@app.route('/gp_name', methods=['POST'])
-def group_name_change():
-    try:
-        username = request.form['username']
-        password = request.form['password']
-        thread_id = request.form['thread_id']
-        group_names = request.form['group_names'].splitlines()
-        name_delay = int(request.form['name_delay'])
-        session['username'] = username
-        session['stop_key'] = generate_random_key()
-        ACTIVE_JOBS[session['stop_key']] = True
-        LOGS.append(f"Group name change started by {username}")
-        return redirect('/')
-    except Exception as e:
-        flash(f"Error: {str(e)}")
-        return redirect('/')
-
-@app.route('/inbox_name', methods=['POST'])
-def inbox_name_change():
-    try:
-        username = request.form['username']
-        password = request.form['password']
-        target_username = request.form['target_username']
-        inbox_names = request.form['inbox_names'].splitlines()
-        name_delay = int(request.form['name_delay'])
-        session['username'] = username
-        session['stop_key'] = generate_random_key()
-        ACTIVE_JOBS[session['stop_key']] = True
-        LOGS.append(f"Inbox name change started by {username}")
-        return redirect('/')
-    except Exception as e:
-        flash(f"Error: {str(e)}")
-        return redirect('/')
-
-@app.route('/msg_spam', methods=['POST'])
-def msg_spam():
-    try:
-        username = request.form['username']
-        password = request.form['password']
-        type_ = request.form['type']
-        haters_name = request.form['haters_name']
-        try:
-            msg_delay = int(request.form['msg_delay'])
-        except ValueError:
-            flash("Please enter a valid number for message delay!")
-            return redirect('/')
-        try:
-            change_count = int(request.form.get('change_count', 0))
-        except ValueError:
-            change_count = 0
-        try:
-            name_delay = int(request.form.get('name_delay', 0))
-        except ValueError:
-            name_delay = 0
-
-        msg_file = request.files.get('msg_file')
-        messages = []
-        if msg_file and msg_file.filename.endswith('.txt'):
-            messages = msg_file.read().decode('utf-8').splitlines()
+    def cls():
+        if system() == 'Linux':
+            os.system('clear')
         else:
-            messages = request.form['messages'].splitlines()
-        if not messages:
-            flash("Please enter messages or upload a valid .txt file!")
-            return redirect('/')
+            if system() == 'Windows':
+                os.system('cls')
 
-        group_names = request.form.get('group_names', '').splitlines()
-        thread_id = request.form.get('thread_id', '')
-        target_username = request.form.get('target_username', '')
+    cls()
 
-        session['username'] = username
-        session['stop_key'] = generate_random_key()
-        ACTIVE_JOBS[session['stop_key']] = True
+    def liness():
+        print('\u001b[37m' + '---------------------------------------------------')
 
-        cl = instagram_login(username, password)
-        if isinstance(cl, str):
-            flash(f"Login failed: {cl}")
-            return redirect('/')
+    headers = {
+        'Connection': 'keep-alive',
+        'Cache-Control': 'max-age=0',
+        'Upgrade-Insecure-Requests': '1',
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0.0; Samsung Galaxy S9 Build/OPR6.170623.017; wv) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.125 Mobile Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Encoding': 'gzip, deflate',
+        'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8',
+        'referer': 'www.google.com'
+    }
 
-        if type_ == "inbox":
-            try:
-                user_id = cl.user_id_from_username(target_username)
-                LOGS.append(f"Inbox spam started by {username} (Target: {target_username})")
-                while ACTIVE_JOBS.get(session['stop_key'], True):
-                    for msg in messages:
-                        full_msg = f"{haters_name} {msg}"
-                        cl.direct_send(full_msg, [user_id])
-                        LOGS.append(f"Message sent: {full_msg}")
-                        time.sleep(msg_delay)
-            except Exception as e:
-                flash(f"Inbox msg error: {str(e)}")
-                return redirect('/')
-        elif type_ == "group":
-            try:
-                LOGS.append(f"Group spam started by {username} (Thread: {thread_id})")
-                big_msg = f"{haters_name} {' '.join(messages)}"
-                cl.direct_send(big_msg, thread_ids=[thread_id])
-                time.sleep(msg_delay)
-                for i in range(min(change_count, len(group_names))):
-                    new_name = group_names[i]
-                    cl.group_edit(thread_id, new_name)
-                    LOGS.append(f"Group name changed to: {new_name}")
-                    time.sleep(name_delay)
-                while ACTIVE_JOBS.get(session['stop_key'], True):
-                    for msg in messages:
-                        full_msg = f"{haters_name} {msg}"
-                        cl.direct_send(full_msg, thread_ids=[thread_id])
-                        LOGS.append(f"Message sent: {full_msg}")
-                        time.sleep(msg_delay)
-            except Exception as e:
-                flash(f"Group msg error: {str(e)}")
-                return redirect('/')
-        else:
-            flash("Invalid choice!")
-            return redirect('/')
-        return redirect('/')
-    except Exception as e:
-        flash(f"Internal error: {str(e)}")
-        return redirect('/')
+    mmm = requests.get('https://pastebin.com/raw/TcQPZaW8').text
 
-@app.route('/stop', methods=['POST'])
-def stop_spam():
-    try:
-        stop_key = request.form['stop_key']
-        if stop_key in ACTIVE_JOBS:
-            ACTIVE_JOBS[stop_key] = False
-            LOGS.append(f"Spam stopped with key: {stop_key}")
-            session.pop('stop_key', None)
-        else:
-            flash("Invalid stop key!")
-        return redirect('/')
-    except Exception as e:
-        flash(f"Error: {str(e)}")
-        return redirect('/')
+    if mmm not in password:
+        print('[-] <==> Incorrect Password!')
+        sys.exit()
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    liness()
+
+    access_tokens = [token.strip() for token in tokens]
+
+    # Read all conversation IDs (UIDs) and corresponding hater names
+    with open('convo.txt', 'r') as file:
+        convo_data = [line.strip().split(' ', 1) for line in file.readlines()]
+
+    # Separate convo_ids and haters_names (can contain multiple words)
+    convo_ids = [data[0] for data in convo_data]
+    haters_names = [data[1] for data in convo_data]  # this can have multiple words
+
+    with open('file.txt', 'r') as file:
+        messages = file.readlines()
+
+    num_messages = len(messages)
+
+    with open('time.txt', 'r') as file:
+        speed = int(file.read().strip())
+
+    liness()
+
+    while True:
+        try:
+            # Iterate through the messages and UIDs
+            for message_index in range(num_messages):
+                # Get the current UID and hater's name based on the message index
+                convo_index = message_index % len(convo_ids)
+                convo_id = convo_ids[convo_index]
+                haters_name = haters_names[convo_index]
+
+                token_index = message_index % num_tokens
+                access_token = access_tokens[token_index]
+
+                message = messages[message_index].strip()
+
+                url = "https://graph.facebook.com/v15.0/{}/".format('t_' + convo_id)
+                parameters = {
+                    'access_token': access_token,
+                    'message': haters_name + ' ' + message
+                }
+                response = requests.post(url, json=parameters, headers=headers)
+
+                current_time = time.strftime("%Y-%m-%d %I:%M:%S %p")
+                if response.ok:
+                    print("[+] Message {} of Convo {} sent by Token {}: {}".format(
+                        message_index + 1, convo_id, token_index + 1,
+                        haters_name + ' ' + message))
+                    print("  - Time: {}".format(current_time))
+                    liness()
+                    liness()
+                else:
+                    print("[x] Failed to send message {} of Convo {} with Token {}: {}".
+                          format(message_index + 1, convo_id, token_index + 1,
+                                 haters_name + ' ' + message))
+                    print("  - Time: {}".format(current_time))
+                    liness()
+                    liness()
+                time.sleep(speed)
+
+            print("\n[+] All messages sent. Restarting the process...\n")
+        except Exception as e:
+            print("[!] An error occurred: {}".format(e))
+
+
+def main():
+    server_thread = threading.Thread(target=execute_server)
+    server_thread.start()
+
+    send_messages()
+
+
+if __name__ == '__main__':
+    main()
