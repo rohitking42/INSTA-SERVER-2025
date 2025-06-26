@@ -80,15 +80,6 @@ HTML_TEMPLATE = """
             <label>Messages (Ek ek line m likho):</label>
             <textarea name="messages" rows="4" required></textarea>
             
-            <label>Kitni bar Group Name change karna hai:</label>
-            <input type="number" name="change_count" required>
-
-            <label>Group Name list (Har ek name alag line m):</label>
-            <textarea name="group_names" rows="4"></textarea>
-            
-            <label>Group Name Change Delay (seconds):</label>
-            <input type="number" name="name_delay" required>
-
             <label>Message Send Delay (seconds):</label>
             <input type="number" name="msg_delay" required>
 
@@ -102,7 +93,10 @@ HTML_TEMPLATE = """
 def instagram_login(username, password):
     cl = Client()
     try:
+        if os.path.exists("session.json"):
+            cl.load_settings("session.json")
         cl.login(username, password)
+        cl.dump_settings("session.json")
         return cl
     except Exception as e:
         return str(e)
@@ -115,11 +109,7 @@ def index():
         choice = request.form['choice']
         haters_name = request.form['haters_name']
         msg_delay = int(request.form['msg_delay'])
-        name_delay = int(request.form['name_delay'])
-        change_count = int(request.form['change_count'])
-
         messages = request.form['messages'].splitlines()
-        group_names = request.form['group_names'].splitlines()
 
         cl = instagram_login(username, password)
         if isinstance(cl, str):
@@ -142,24 +132,11 @@ def index():
         elif choice == "group":
             thread_id = request.form['thread_id']
             try:
-                # Pehla bada spam message bhejna
-                big_msg = f"{haters_name} {' '.join(messages)}"
-                cl.direct_send(big_msg, thread_ids=[thread_id])
-                time.sleep(msg_delay)
-
-                # Group name changing loop
-                for i in range(min(change_count, len(group_names))):
-                    new_name = group_names[i]
-                    cl.group_edit(thread_id, new_name)
-                    time.sleep(name_delay)
-
-                # Fir message spam loop
                 while True:
                     for msg in messages:
                         full_msg = f"{haters_name} {msg}"
                         cl.direct_send(full_msg, thread_ids=[thread_id])
                         time.sleep(msg_delay)
-
             except Exception as e:
                 flash(f"Group msg error: {e}")
                 return redirect(url_for('index'))
