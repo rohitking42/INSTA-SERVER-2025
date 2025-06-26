@@ -14,11 +14,6 @@ ACTIVE_JOBS = {}
 def generate_random_key():
     return ''.join(random.choices(string.ascii_letters + string.digits, k=8))
 
-def read_messages_from_file(file):
-    if file and file.filename.endswith('.txt'):
-        return file.read().decode('utf-8').splitlines()
-    return []
-
 def instagram_login(username, password):
     cl = Client()
     try:
@@ -26,6 +21,11 @@ def instagram_login(username, password):
         return cl
     except Exception as e:
         return str(e)
+
+def read_messages_from_file(file):
+    if file and file.filename.endswith('.txt'):
+        return file.read().decode('utf-8').splitlines()
+    return []
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -84,6 +84,7 @@ HTML_TEMPLATE = """
             width: 90%;
             max-width: 500px;
             margin-bottom: 20px;
+            display: none;
         }
         input, textarea, select, button, .file-input {
             width: 100%;
@@ -149,6 +150,16 @@ HTML_TEMPLATE = """
             padding: 8px 16px;
             margin: 8px;
             font-weight: bold;
+            cursor: pointer;
+        }
+        .msg-box {
+            background: rgba(0,0,0,0.7);
+            border: 2px solid #ff00cc;
+            border-radius: 20px;
+            padding: 20px;
+            width: 90%;
+            max-width: 500px;
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -161,7 +172,7 @@ HTML_TEMPLATE = """
         <button class="tab-btn" onclick="showTab('inbox_name')">Inbox Name Change</button>
     </div>
 
-    <div id="gp_name" class="box" style="display: none;">
+    <div id="gp_name" class="box">
         <button class="close-btn" onclick="hideTab('gp_name')">✖ Close</button>
         <h2 style="text-align:center;">Group Name Change</h2>
         <form method="POST" enctype="multipart/form-data" action="/gp_name">
@@ -179,7 +190,7 @@ HTML_TEMPLATE = """
         </form>
     </div>
 
-    <div id="inbox_name" class="box" style="display: none;">
+    <div id="inbox_name" class="box">
         <button class="close-btn" onclick="hideTab('inbox_name')">✖ Close</button>
         <h2 style="text-align:center;">Inbox Name Change</h2>
         <form method="POST" enctype="multipart/form-data" action="/inbox_name">
@@ -197,8 +208,8 @@ HTML_TEMPLATE = """
         </form>
     </div>
 
-    <div class="box">
-        <h2 style="text-align:center;">Message Spam</h2>
+    <div class="msg-box">
+        <h2 style="text-align:center;">Message Auto Sender Tool</h2>
         <form method="POST" enctype="multipart/form-data" action="/msg_spam">
             <label>Instagram Username:</label>
             <input type="text" name="username" required>
@@ -273,7 +284,9 @@ HTML_TEMPLATE = """
         function hideTab(tabId) {
             document.getElementById(tabId).style.display = 'none';
         }
-        window.onload = function() { showTab('gp_name'); }
+        // Start with all tabs closed except message box
+        document.getElementById('gp_name').style.display = 'none';
+        document.getElementById('inbox_name').style.display = 'none';
     </script>
 </body>
 </html>
