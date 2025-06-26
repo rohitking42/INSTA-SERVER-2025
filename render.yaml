@@ -2,7 +2,9 @@ services:
   - type: web
     name: dragon-insta-spammer
     env: python
-    buildCommand: ""
-    startCommand: python main.py
     plan: free
-    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: FLASK_ENV
+        value: production
