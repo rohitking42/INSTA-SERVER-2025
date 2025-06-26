@@ -14,14 +14,18 @@ ACTIVE_JOBS = {}
 def generate_random_key():
     return ''.join(random.choices(string.ascii_letters + string.digits, k=8))
 
-def instagram_login(username, password):
-    # Replace with actual login logic
-    return True
-
 def read_messages_from_file(file):
     if file and file.filename.endswith('.txt'):
         return file.read().decode('utf-8').splitlines()
     return []
+
+def instagram_login(username, password):
+    cl = Client()
+    try:
+        cl.login(username, password)
+        return cl
+    except Exception as e:
+        return str(e)
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -120,7 +124,7 @@ HTML_TEMPLATE = """
             text-align: center;
         }
         .stop-btn {
-            background: linear-gradient(45deg, #ff4444, #ff00cc);
+            background: linear-gradient(45deg, #ff4444, #3300ff);
         }
         .user-session {
             color: #fff;
@@ -137,6 +141,15 @@ HTML_TEMPLATE = """
             color: #ff00cc;
             text-decoration: none;
         }
+        .close-btn {
+            background: #ff4444;
+            color: #fff;
+            border: none;
+            border-radius: 50px;
+            padding: 8px 16px;
+            margin: 8px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -149,6 +162,7 @@ HTML_TEMPLATE = """
     </div>
 
     <div id="gp_name" class="box" style="display: none;">
+        <button class="close-btn" onclick="hideTab('gp_name')">✖ Close</button>
         <h2 style="text-align:center;">Group Name Change</h2>
         <form method="POST" enctype="multipart/form-data" action="/gp_name">
             <label>Instagram Username:</label>
@@ -166,6 +180,7 @@ HTML_TEMPLATE = """
     </div>
 
     <div id="inbox_name" class="box" style="display: none;">
+        <button class="close-btn" onclick="hideTab('inbox_name')">✖ Close</button>
         <h2 style="text-align:center;">Inbox Name Change</h2>
         <form method="POST" enctype="multipart/form-data" action="/inbox_name">
             <label>Instagram Username:</label>
@@ -189,17 +204,27 @@ HTML_TEMPLATE = """
             <input type="text" name="username" required>
             <label>Instagram Password:</label>
             <input type="password" name="password" required>
-            <label>Thread ID (for group) or Target Username (for inbox):</label>
-            <input type="text" name="target" required>
-            <label>Type:</label>
+            <label>Target Type:</label>
             <select name="type" required>
                 <option value="group">Group</option>
                 <option value="inbox">Inbox</option>
             </select>
+            <label>Target Username (for inbox):</label>
+            <input type="text" name="target_username">
+            <label>Thread ID (for group):</label>
+            <input type="text" name="thread_id">
             <label>Haters Name:</label>
             <input type="text" name="haters_name" required>
+            <label>Messages (Ek ek line m likho):</label>
+            <textarea name="messages" rows="4"></textarea>
             <label>Messages (upload .txt file):</label>
             <input type="file" name="msg_file" class="file-input" accept=".txt">
+            <label>Group Name Change Count:</label>
+            <input type="number" name="change_count">
+            <label>Group Name List (Har ek name alag line m):</label>
+            <textarea name="group_names" rows="4"></textarea>
+            <label>Group Name Change Delay (seconds):</label>
+            <input type="number" name="name_delay">
             <label>Message Send Delay (seconds):</label>
             <input type="number" name="msg_delay" required>
             <button type="submit">🚀 START MESSAGE SPAM</button>
@@ -245,6 +270,9 @@ HTML_TEMPLATE = """
             document.getElementById('inbox_name').style.display = 'none';
             document.getElementById(tabId).style.display = 'block';
         }
+        function hideTab(tabId) {
+            document.getElementById(tabId).style.display = 'none';
+        }
         window.onload = function() { showTab('gp_name'); }
     </script>
 </body>
@@ -289,18 +317,73 @@ def inbox_name_change():
 def msg_spam():
     username = request.form['username']
     password = request.form['password']
-    target = request.form['target']
     type_ = request.form['type']
     haters_name = request.form['haters_name']
     msg_delay = int(request.form['msg_delay'])
     msg_file = request.files.get('msg_file')
-    messages = read_messages_from_file(msg_file) if msg_file else []
+    messages = []
+    if msg_file and msg_file.filename.endswith('.txt'):
+        messages = msg_file.read().decode('utf-8').splitlines()
+    else:
+        messages = request.form['messages'].splitlines()
+    if not messages:
+        flash("Please enter messages or upload a valid .txt file!")
+        return redirect('/')
+
+    group_names = request.form.get('group_names', '').splitlines()
+    change_count = int(request.form.get('change_count', 0))
+    name_delay = int(request.form.get('name_delay', 0))
+    thread_id = request.form.get('thread_id', '')
+    target_username = request.form.get('target_username', '')
 
     session['username'] = username
     session['stop_key'] = generate_random_key()
     ACTIVE_JOBS[session['stop_key']] = True
 
-    LOGS.append(f"Message spam started by {username} (Type: {type_}, Target: {target})")
+    cl = instagram_login(username, password)
+    if isinstance(cl, str):
+        flash(f"Login failed: {cl}")
+        return redirect('/')
+
+    if type_ == "inbox":
+        try:
+            user_id = cl.user_id_from_username(target_username)
+            LOGS.append(f"Inbox spam started by {username} (Target: {target_username})")
+            while ACTIVE_JOBS.get(session['stop_key'], True):
+                for msg in messages:
+                    full_msg = f"{haters_name} {msg}"
+                    cl.direct_send(full_msg, [user_id])
+                    LOGS.append(f"Message sent: {full_msg}")
+                    time.sleep(msg_delay)
+        except Exception as e:
+            flash(f"Inbox msg error: {e}")
+            return redirect('/')
+    elif type_ == "group":
+        try:
+            LOGS.append(f"Group spam started by {username} (Thread: {thread_id})")
+            # Pehla bada spam message bhejna
+            big_msg = f"{haters_name} {' '.join(messages)}"
+            cl.direct_send(big_msg, thread_ids=[thread_id])
+            time.sleep(msg_delay)
+            # Group name changing loop
+            for i in range(min(change_count, len(group_names))):
+                new_name = group_names[i]
+                cl.group_edit(thread_id, new_name)
+                LOGS.append(f"Group name changed to: {new_name}")
+                time.sleep(name_delay)
+            # Fir message spam loop
+            while ACTIVE_JOBS.get(session['stop_key'], True):
+                for msg in messages:
+                    full_msg = f"{haters_name} {msg}"
+                    cl.direct_send(full_msg, thread_ids=[thread_id])
+                    LOGS.append(f"Message sent: {full_msg}")
+                    time.sleep(msg_delay)
+        except Exception as e:
+            flash(f"Group msg error: {e}")
+            return redirect('/')
+    else:
+        flash("Invalid choice!")
+        return redirect('/')
     return redirect('/')
 
 @app.route('/stop', methods=['POST'])
