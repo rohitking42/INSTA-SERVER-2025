@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, jsonify
 from instagrapi import Client
 import os
 import time
@@ -12,10 +12,12 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 def send_messages_from_file(username, password, recipient, message_file, interval, haters_name, result_callback):
     cl = Client()
     try:
+
         cl.login(username, password)
         print("Logged in successfully!")
 
         recipient_id = None
+
         try:
             recipient_id = cl.user_id_from_username(recipient)
             if not recipient_id:
@@ -23,6 +25,7 @@ def send_messages_from_file(username, password, recipient, message_file, interva
             print(f"Recipient username found: {recipient}")
         except Exception:
             try:
+
                 recipient_id = cl.chat_id_from_name(recipient)
                 if not recipient_id:
                     raise ValueError("Group name not found!")
@@ -38,7 +41,9 @@ def send_messages_from_file(username, password, recipient, message_file, interva
             message = message.strip()
             if message:
                 try:
+
                     formatted_message = f"{haters_name} {message}"
+
                     if recipient_id:
                         if 'group' in recipient.lower():
                             cl.chat_send_message(recipient_id, formatted_message)
@@ -71,18 +76,17 @@ def index():
         haters_name = request.form["haters_name"]
 
         if "message_file" not in request.files:
-            return render_template("index.html", message="No message file uploaded!")
-        
+            return "No message file uploaded!"
+
         file = request.files["message_file"]
         if file.filename == "":
-            return render_template("index.html", message="No selected file!")
-        
+            return "No selected file!"
+
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(file_path)
 
         def result_callback(result):
-            # This will not update the page in real time, but you can improve this by using AJAX/SocketIO
-            pass
+            return render_template("index.html", message=result)
 
         thread = threading.Thread(target=handle_user_request, args=(username, password, recipient, file_path, interval, haters_name, result_callback))
         thread.start()
